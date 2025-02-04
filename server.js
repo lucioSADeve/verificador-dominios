@@ -65,7 +65,25 @@ app.get('/api/check-domains/progress', (req, res) => {
     res.json(progress);
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
+// Rota para baixar resultados
+app.get('/api/download-results', (req, res) => {
+    try {
+        const results = {
+            available: domainQueue.results.available,
+            unavailable: domainQueue.results.unavailable,
+            timestamp: new Date().toISOString()
+        };
+        
+        res.json(results);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao baixar resultados' });
+    }
+});
+
+// Configuração da porta para o Render
+const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
+    console.log(`Servidor rodando em http://${HOST}:${PORT}`);
 });
