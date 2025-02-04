@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Verificador de Domínios</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .progress {
+            margin: 20px 0;
+            padding: 10px;
+            background: #f0f0f0;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Verificador de Domínios em Massa</h1>
+    
+    <div>
+        <h3>Upload de Lista</h3>
+        <input type="file" id="fileInput" accept=".txt">
+        <button onclick="uploadFile()">Enviar</button>
+    </div>
+
+    <div class="progress">
+        <h3>Progresso:</h3>
+        <div id="progressInfo">Nenhuma verificação em andamento</div>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Selecione um arquivo');
+                return;
+            }
+
+            try {
+                const text = await file.text();
+                const domains = text.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+
+                console.log('Domínios encontrados:', domains); // Debug
+
+                if (domains.length === 0) {
+                    alert('Nenhum domínio válido encontrado no arquivo');
+                    return;
+                }
+
+                const response = await fetch('/api/check-domains/batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ domains })
+                });
+
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+
+                document.getElementById('progressInfo').innerHTML = `
+                    Iniciando verificação...<br>
+                    Domínios carregados: ${domains.length}
+                `;
+
+                startProgressCheck();
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('progressInfo').innerHTML = `
+                    <div class="error">
+                        Erro: ${error.message}<br>
+                        Por favor, tente novamente.
+                    </div>
+                `;
+            }
+        }
+
+        function startProgressCheck() {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/check-domains/progress');
+                    const progress = await response.json();
+                    
+                    document.getElementById('progressInfo').innerHTML = `
+                        Total: ${progress.total}<br>
+                        Processados: ${progress.processed}<br>
+                        Disponíveis: ${progress.available}<br>
+                        Indisponíveis: ${progress.unavailable}
+                    `;
+
+                    if (progress.processed === progress.total && progress.total > 0) {
+                        clearInterval(interval);
+                        document.getElementById('progressInfo').innerHTML += '<br><strong>Verificação concluída!</strong>';
+                    }
+                } catch (error) {
+                    console.error('Erro ao verificar progresso:', error);
+                    document.getElementById('progressInfo').innerHTML = `
+                        <div class="error">
+                            Erro ao verificar progresso: ${error.message}
+                        </div>
+                    `;
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
